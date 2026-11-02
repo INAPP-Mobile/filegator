@@ -111,6 +111,13 @@ fi
 
 chown -R www-data:www-data /data
 
+# DEBUG (temporary, 2026-11-02): Apache fails with AH00534 "More than
+# one MPM loaded" on Railway; print the ground truth before starting.
+echo "DEBUG mods-enabled:"; ls /etc/apache2/mods-enabled/ | grep -i mpm || true
+echo "DEBUG ports.conf:"; cat /etc/apache2/ports.conf
+echo "DEBUG vhost:"; grep -i virtualhost /etc/apache2/sites-available/000-default.conf || true
+apache2 -t 2>&1 || true
+
 if command -v docker-php-entrypoint >/dev/null 2>&1; then
   exec docker-php-entrypoint apache2-foreground
 else
