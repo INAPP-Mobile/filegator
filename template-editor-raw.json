@@ -1,0 +1,1 @@
+{"ADMIN_PASSWORD":{"description":"Password for the admin account, set exactly once on first boot. Generated automatically on deploy; changing it later does not change the password — change it in the FileGator UI instead.","value":"${{secret(16)}}"}}
