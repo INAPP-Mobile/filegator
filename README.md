@@ -69,6 +69,7 @@ A single volume is mounted at `/data` and holds both upstream data directories v
 - Upstream: [filegator/filegator](https://github.com/filegator/filegator) v7.16.8, MIT, image pinned by digest.
 - Healthcheck: `GET /` (the SPA shell, no auth required).
 - Default accounts: `admin` (password from `ADMIN_PASSWORD`) and `guest` (no permissions, upstream default).
+- Upstream quirk: the "New file" action reports `Failed` but the file is created (refresh the listing to see it); creating files via the editor save and uploads report correctly.
 
 ### Deployment Dependencies
 
