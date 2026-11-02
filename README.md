@@ -46,7 +46,7 @@ Everything else is baked into the image. Applicable upstream variables and their
 
 | Variable | Value | Description |
 | --- | --- | --- |
-| `PORT` | Railway-injected | Apache listen port, rewritten from upstream's baked 8080 by the wrapper entrypoint on every boot. |
+| `PORT` | Railway-injected | Apache listen port: upstream's configs literally contain `${APACHE_PORT}` (Apache expands it from the environment), so the wrapper exports it as Railway's `PORT` on every boot. |
 | `APACHE_DOCUMENT_ROOT` | `/var/www/filegator/dist/` | Upstream default; the Vue frontend bundle. |
 | `timezone` | `UTC` | Upstream default from `configuration.php`. |
 | `upload_max_size` | `100 MB` | Upstream default frontend cap (chunked 1 MB uploads). |

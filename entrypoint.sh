@@ -3,13 +3,19 @@
 #
 # Why a wrapper at all (house style: bake constants, keep the deploy
 # form zero-field, survive Railway's root-owned volumes):
-# - PORT: Railway injects PORT, but the upstream image bakes Apache's
-#   listen port at BUILD time (its Dockerfile sed-replaces 80 with
-#   APACHE_PORT=8080 in ports.conf and the vhost). A runtime PORT
-#   change therefore does nothing upstream, so this script rewrites
-#   both files to $PORT before starting Apache. Without this,
-#   Railway's healthcheck and public proxy would probe a port nothing
-#   listens on.
+# - PORT: Railway injects PORT, but the upstream image's Apache
+#   configs literally contain "Listen ${APACHE_PORT}" (its Dockerfile
+#   sed used single quotes, so the variable survived build time
+#   unexpanded). Apache 2.4 expands ${VAR} from the process
+#   environment, so this script exports APACHE_PORT=$PORT before
+#   starting Apache (with literal-8080 seds as a fallback for a
+#   future upstream that bakes a number instead). Without this,
+#   Apache would listen on the image default 8080 while Railway's
+#   healthcheck and public proxy probe $PORT.
+# - MPM: the upstream image ships BOTH mpm_event and mpm_prefork
+#   enabled, which kills Apache at startup with AH00534 "More than
+#   one MPM loaded". mod_php requires prefork, so this script
+#   disables mpm_event before starting Apache.
 # - ONE VOLUME, TWO DIRS: upstream declares VOLUME for both
 #   /var/www/filegator/repository (user files) and
 #   /var/www/filegator/private (users.json, logs, sessions, tmp), but
@@ -48,8 +54,22 @@ APP=/var/www/filegator
 PORT="${PORT:-8080}"
 
 # 1. Apache listen port -> Railway's injected PORT.
+# Upstream's build-time sed used single quotes, so ports.conf and the
+# vhost literally contain "Listen ${APACHE_PORT}" / "<VirtualHost
+# *:${APACHE_PORT}>" — Apache 2.4 expands ${VAR} from the process
+# environment, and the image sets APACHE_PORT=8080. Exporting
+# APACHE_PORT=$PORT therefore retargets Apache onto Railway's port
+# with no file rewrite. The seds below are a fallback for a future
+# upstream that bakes a literal 8080 instead.
+export APACHE_PORT="${PORT}"
 sed -i "s/^Listen 8080/Listen ${PORT}/" /etc/apache2/ports.conf
 sed -i "s/\*:8080/*:${PORT}/" /etc/apache2/sites-available/000-default.conf
+
+# 1b. MPM conflict (proven 2026-11-02 on Railway): the upstream image
+# ships BOTH mpm_event and mpm_prefork enabled in mods-enabled, so
+# Apache dies at startup with AH00534 "More than one MPM loaded".
+# mod_php requires prefork (it is not thread-safe), so disable event.
+a2dismod -q mpm_event || true
 
 # 2. Wire the single /data volume under both upstream data dirs.
 mkdir -p /data/repository /data/private
@@ -110,13 +130,6 @@ elif [ -z "$ADMIN_PASSWORD" ]; then
 fi
 
 chown -R www-data:www-data /data
-
-# DEBUG (temporary, 2026-11-02): Apache fails with AH00534 "More than
-# one MPM loaded" on Railway; print the ground truth before starting.
-echo "DEBUG mods-enabled:"; ls /etc/apache2/mods-enabled/ | grep -i mpm || true
-echo "DEBUG ports.conf:"; cat /etc/apache2/ports.conf
-echo "DEBUG vhost:"; grep -i virtualhost /etc/apache2/sites-available/000-default.conf || true
-apache2 -t 2>&1 || true
 
 if command -v docker-php-entrypoint >/dev/null 2>&1; then
   exec docker-php-entrypoint apache2-foreground

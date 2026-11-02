@@ -2,9 +2,14 @@
 #
 # Why a wrapper at all (house style: bake constants, keep the deploy
 # form zero-field, and survive Railway's root-owned volumes):
-# - PORT: Railway injects PORT, but upstream bakes Apache's listen
-#   port at build time (8080). entrypoint.sh rewrites ports.conf and
-#   the vhost to $PORT before starting Apache.
+# - PORT: Railway injects PORT, but upstream's configs literally
+#   contain "Listen ${APACHE_PORT}" (its build-time sed used single
+#   quotes, so the variable was never expanded at build time).
+#   Apache 2.4 expands ${VAR} from the process environment, so
+#   entrypoint.sh exports APACHE_PORT=$PORT before starting Apache.
+# - MPM: upstream ships both mpm_event and mpm_prefork enabled, which
+#   kills Apache at startup (AH00534); entrypoint.sh disables
+#   mpm_event (mod_php requires prefork).
 # - ONE VOLUME, TWO DIRS: upstream wants both repository/ (user files)
 #   and private/ (users.json, logs, sessions) on disk, but Railway
 #   allows one volume per service. entrypoint.sh puts both under the

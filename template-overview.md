@@ -37,7 +37,7 @@ Hosting FileGator on Railway keeps your files on your own volume instead of a th
 | Variable | Default | Description |
 | --- | --- | --- |
 | `ADMIN_PASSWORD` | generated | Password for the `admin` account, set exactly once on first boot; the only deploy-form field. |
-| `PORT` | Railway-injected | Apache listen port, rewritten from upstream's baked 8080 by the wrapper entrypoint. |
+| `PORT` | Railway-injected | Apache listen port: upstream's configs literally contain `${APACHE_PORT}` (Apache expands it from the environment), so the wrapper exports it as Railway's `PORT`. |
 | `upload_max_size` | `100 MB` | Upstream default frontend cap (chunked 1 MB uploads). |
 | `csrf_key` | random per boot | Upstream ships the public default `123456`; the wrapper replaces it on every boot. |
 | `session save path` | `private/sessions` (on volume) | Upstream default is the system temp dir; the wrapper points it at the volume. |
